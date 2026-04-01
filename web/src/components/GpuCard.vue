@@ -58,6 +58,10 @@
           <span class="text-xs text-gray-500">Mem Clk</span>
           <span class="text-xs font-bold ml-auto text-blue-500 dark:text-blue-400">{{ formatMHz(clockMemMHz) }}</span>
         </div>
+        <div v-if="hasFan" class="flex items-center gap-1.5 px-3 py-2 bg-white/40 dark:bg-gray-800/40 rounded-xl">
+          <span class="text-xs text-gray-500">Fan</span>
+          <span class="text-xs font-bold ml-auto text-teal-500 dark:text-teal-400">{{ fanPercent }}%</span>
+        </div>
       </div>
 
       <!-- Intel Engines -->
@@ -117,11 +121,9 @@ const label = computed(() => {
   return 'AMD GPU'
 })
 
-// Nvidia & AMD use PascalCase (no JSON tags in Go struct)
-// Intel uses snake_case (has JSON tags in Go struct)
 const gpuName = computed(() => {
   if (props.type === 'intel') return 'Intel GPU (PMU)'
-  return props.data.Name || 'Unknown'
+  return props.data.name || 'Unknown'
 })
 
 const utilizationGPU = computed(() => {
@@ -130,38 +132,41 @@ const utilizationGPU = computed(() => {
     const render = props.data.engines?.find(e => e.name?.toLowerCase().includes('render'))
     return Math.round(render?.busy_pct || 0)
   }
-  return props.data.UtilizationGPU || 0
+  return Math.round(props.data.usage_percent || 0)
 })
 
 const vramTotal = computed(() => {
   if (props.type === 'intel') return 0
-  return props.data.VRAMTotal || 0
+  return props.data.mem_total || 0
 })
 
 const vramUsed = computed(() => {
   if (props.type === 'intel') return 0
-  return props.data.VRAMUsed || 0
+  return props.data.mem_used || 0
 })
 
 const tempC = computed(() => {
   if (props.type === 'intel') return 0
-  return props.data.TempC || 0
+  return props.data.temp_c || 0
 })
 
 const powerWatts = computed(() => {
   if (props.type === 'intel') return props.data.power_gpu_watts || 0
-  return props.data.PowerWatts || 0
+  return props.data.power_watts || 0
 })
 
 const clockCoreMHz = computed(() => {
   if (props.type === 'intel') return props.data.freq_act_mhz || 0
-  return props.data.ClockCoreMHz || 0
+  return props.data.freq_mhz || 0
 })
 
 const clockMemMHz = computed(() => {
   if (props.type === 'intel') return 0
-  return props.data.ClockMemMHz || 0
+  return props.data.mem_freq_mhz || 0
 })
+
+const hasFan = computed(() => 'fan_percent' in props.data)
+const fanPercent = computed(() => props.data.fan_percent || 0)
 
 
 </script>

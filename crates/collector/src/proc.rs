@@ -5,6 +5,7 @@
 //!   `/proc/[pid]/status`  — RSS memory
 //!   `/proc/[pid]/io`      — cumulative IO bytes (requires CAP_SYS_PTRACE or same-uid)
 //!   `/proc/[pid]/cmdline` — full command line
+//!   `/etc/passwd`         — UID to username mapping
 
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
@@ -49,7 +50,9 @@ fn proc_state() -> &'static Mutex<HashMap<u32, ProcSnapshot>> {
 ///
 /// `total_mem_bytes` is used to compute `mem_percent`.
 pub fn collect(total_mem_bytes: u64) -> Vec<ProcessInfo> {
-    let Ok(entries) = std::fs::read_dir("/proc") else { return Vec::new() };
+    let Ok(entries) = std::fs::read_dir("/proc") else {
+        return Vec::new();
+    };
     let now = Instant::now();
     let mut state = proc_state().lock().unwrap();
     let mut results = Vec::new();
@@ -60,9 +63,13 @@ pub fn collect(total_mem_bytes: u64) -> Vec<ProcessInfo> {
     for entry in entries.flatten() {
         let name = entry.file_name();
         let pid_str = name.to_str().unwrap_or("");
-        let Ok(pid) = pid_str.parse::<u32>() else { continue };
+        let Ok(pid) = pid_str.parse::<u32>() else {
+            continue;
+        };
 
-        let Some(info) = collect_one(pid, total_mem_bytes, hz, now, &mut state) else { continue };
+        let Some(info) = collect_one(pid, total_mem_bytes, hz, now, &mut state) else {
+            continue;
+        };
         results.push(info);
     }
 
@@ -90,18 +97,31 @@ fn collect_one(
     let (cpu_percent, cmdline) = if let Some(prev) = state.get(&pid) {
         let dt = now.duration_since(prev.when).as_secs_f64();
         let cp = if dt > 0.0 && hz > 0.0 {
-            let delta_ticks =
-                (utime + stime).saturating_sub(prev.utime + prev.stime) as f64;
+            let delta_ticks = (utime + stime).saturating_sub(prev.utime + prev.stime) as f64;
             (delta_ticks / hz / dt * 100.0).clamp(0.0, 100.0 * num_cpus())
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         (cp, prev.cmdline.clone())
     } else {
         (0.0, read_cmdline(pid))
     };
 
-    state.insert(pid, ProcSnapshot { utime, stime, when: now, cmdline: cmdline.clone() });
+    state.insert(
+        pid,
+        ProcSnapshot {
+            utime,
+            stime,
+            when: now,
+            cmdline: cmdline.clone(),
+        },
+    );
 
-    let mem_percent = if total_mem > 0 { rss as f64 / total_mem as f64 * 100.0 } else { 0.0 };
+    let mem_percent = if total_mem > 0 {
+        rss as f64 / total_mem as f64 * 100.0
+    } else {
+        0.0
+    };
 
     Some(ProcessInfo {
         pid,
@@ -131,8 +151,8 @@ fn read_stat(pid: u32) -> Option<StatFields> {
     // Format: pid (name) state ... utime stime ...
     // Name may contain spaces and parentheses, so parse carefully.
     let start = content.find('(')?;
-    let end   = content.rfind(')')?;
-    let name  = content[start + 1..end].to_string();
+    let end = content.rfind(')')?;
+    let name = content[start + 1..end].to_string();
     let rest: Vec<&str> = content[end + 2..].split_whitespace().collect();
     let state = rest.first()?.chars().next().unwrap_or('?');
     // Fields are 0-indexed from the post-name remainder:
@@ -140,22 +160,31 @@ fn read_stat(pid: u32) -> Option<StatFields> {
     // 7=minflt 8=cminflt 9=majflt 10=cmajflt 11=utime 12=stime
     let utime: u64 = rest.get(11)?.parse().ok()?;
     let stime: u64 = rest.get(12)?.parse().ok()?;
-    Some(StatFields { name, state, utime, stime })
+    Some(StatFields {
+        name,
+        state,
+        utime,
+        stime,
+    })
 }
 
 fn read_status(pid: u32) -> (u64, u32) {
-    let Ok(content) = std::fs::read_to_string(format!("/proc/{pid}/status")) else { return (0, 0) };
+    let Ok(content) = std::fs::read_to_string(format!("/proc/{pid}/status")) else {
+        return (0, 0);
+    };
     let mut rss = 0;
     let mut uid = 0;
     for line in content.lines() {
         if let Some(rest) = line.strip_prefix("VmRSS:") {
-            rss = rest.split_whitespace()
+            rss = rest
+                .split_whitespace()
                 .next()
                 .and_then(|v| v.parse::<u64>().ok())
                 .map(|kb| kb << 10)
                 .unwrap_or(0);
         } else if let Some(rest) = line.strip_prefix("Uid:") {
-            uid = rest.split_whitespace()
+            uid = rest
+                .split_whitespace()
                 .next()
                 .and_then(|v| v.parse::<u32>().ok())
                 .unwrap_or(0);
@@ -165,7 +194,9 @@ fn read_status(pid: u32) -> (u64, u32) {
 }
 
 fn read_io(pid: u32) -> (u64, u64) {
-    let Ok(content) = std::fs::read_to_string(format!("/proc/{pid}/io")) else { return (0, 0) };
+    let Ok(content) = std::fs::read_to_string(format!("/proc/{pid}/io")) else {
+        return (0, 0);
+    };
     let (mut r, mut w) = (0u64, 0u64);
     for line in content.lines() {
         if let Some(v) = line.strip_prefix("read_bytes:") {
@@ -180,7 +211,8 @@ fn read_io(pid: u32) -> (u64, u64) {
 fn read_cmdline(pid: u32) -> String {
     std::fs::read(format!("/proc/{pid}/cmdline"))
         .map(|bytes| {
-            bytes.split(|&b| b == 0)
+            bytes
+                .split(|&b| b == 0)
                 .filter(|s| !s.is_empty())
                 .map(|s| String::from_utf8_lossy(s))
                 .collect::<Vec<_>>()
@@ -222,11 +254,15 @@ fn resolve_uid(uid: u32) -> String {
 /// Sorts a process list in-place by the given criterion.
 pub fn sort(procs: &mut Vec<ProcessInfo>, sort_by: &str) {
     match sort_by {
-        "cpu"  => procs.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal)),
-        "mem"  => procs.sort_by_key(|p| std::cmp::Reverse(p.mem_rss_bytes)),
-        "pid"  => procs.sort_by_key(|p| p.pid),
+        "cpu" => procs.sort_by(|a, b| {
+            b.cpu_percent
+                .partial_cmp(&a.cpu_percent)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }),
+        "mem" => procs.sort_by_key(|p| std::cmp::Reverse(p.mem_rss_bytes)),
+        "pid" => procs.sort_by_key(|p| p.pid),
         "name" => procs.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase())),
-        "io"   => procs.sort_by_key(|p| std::cmp::Reverse(p.io_read_bytes + p.io_write_bytes)),
+        "io" => procs.sort_by_key(|p| std::cmp::Reverse(p.io_read_bytes + p.io_write_bytes)),
         _ => {}
     }
 }
@@ -236,10 +272,15 @@ pub fn filter_by_name<'a>(procs: &'a [ProcessInfo], filter: &str) -> Vec<Process
 where
     ProcessInfo: Clone,
 {
-    if filter.is_empty() { return procs.to_vec(); }
+    if filter.is_empty() {
+        return procs.to_vec();
+    }
     let lower = filter.to_lowercase();
-    procs.iter()
-        .filter(|p| p.name.to_lowercase().contains(&lower) || p.cmdline.to_lowercase().contains(&lower))
+    procs
+        .iter()
+        .filter(|p| {
+            p.name.to_lowercase().contains(&lower) || p.cmdline.to_lowercase().contains(&lower)
+        })
         .cloned()
         .collect()
 }
