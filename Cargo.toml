@@ -6,7 +6,7 @@ members = [
     "crates/config",
     "crates/agent",
     "crates/server",
-    "crates/mcp", "target/test_gui",
+    "crates/mcp",
 ]
 
 [workspace.package]
