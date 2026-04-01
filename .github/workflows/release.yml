@@ -62,18 +62,24 @@ jobs:
         run: |
           BIN_NAME="rtop"
           BIN_PATH="target/${{ matrix.target }}/release/${BIN_NAME}"
-          ARCHIVE_NAME="rtop-${{ matrix.target }}.tar.gz"
+          
+          CLEAN_TARGET="${{ matrix.target }}"
+          CLEAN_TARGET="${CLEAN_TARGET/unknown-linux-/}"
+          VERSION="${{ github.ref_name }}"
+          
+          ARCHIVE_NAME="rtop-${VERSION}-${CLEAN_TARGET}.tar.gz"
           
           # Only archive the binary
           tar -czf "$ARCHIVE_NAME" -C "target/${{ matrix.target }}/release" "$BIN_NAME"
           
           echo "archive=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
+          echo "clean_target=$CLEAN_TARGET" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}
+          name: rtop-${{ github.ref_name }}-${{ steps.package.outputs.clean_target }}
           path: ${{ steps.package.outputs.archive }}
 
   release:
