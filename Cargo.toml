@@ -36,7 +36,7 @@ tower-http        = { version = "0.6", features = ["fs", "cors"] }
 tokio-tungstenite = "0.26"
 
 # HTTP client (agent sender)
-reqwest = { version = "0.12", features = ["json", "gzip", "native-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "gzip", "rustls-tls"] }
 
 # Embed assets
 rust-embed = { version = "8", features = ["interpolate-folder-path"] }
