@@ -1,0 +1,71 @@
+{
+  "enabled_agent": false,
+  "enabled_web": false,
+  "update_interval_ms": 1000,
+  "web": {
+    "port": 8080,
+    "network_interface": "",
+    "storage_filter": []
+  },
+  "server": {
+    "endpoint": "http://your-server:8080/api/telemetry",
+    "auth_token": "",
+    "auth_header": "Authorization",
+    "timeout_seconds": 10,
+    "retry_count": 3,
+    "retry_delay_seconds": 5,
+    "tls_skip_verify": false,
+    "tls_ca_cert": "",
+    "compress": false
+  },
+  "agent": {
+    "interval_seconds": 5,
+    "machine_id": "",
+    "machine_name": "",
+    "tags": {},
+    "log_level": "info",
+    "log_file": "",
+    "pid_file": "/tmp/rtop-agent.pid"
+  },
+  "modules": {
+    "host": {
+      "enabled": true
+    },
+    "memory": {
+      "enabled": true
+    },
+    "cpu": {
+      "enabled": true,
+      "fields": [
+        "usage",
+        "freq",
+        "temp",
+        "power",
+        "loadavg",
+        "uptime",
+        "name"
+      ]
+    },
+    "disk": {
+      "enabled": true,
+      "mount_filter": []
+    },
+    "network": {
+      "enabled": true,
+      "iface_filter": [],
+      "exclude_virtual": true
+    },
+    "processes": {
+      "enabled": true,
+      "top_n": 20,
+      "sort_by": "cpu",
+      "name_filter": ""
+    },
+    "gpu": {
+      "enabled": true,
+      "intel": true,
+      "nvidia": true,
+      "amd": true
+    }
+  }
+}
