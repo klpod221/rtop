@@ -1,5 +1,5 @@
 <div align="center">
-    <h1>rtop</h1>
+    <h1>rtop: Rust Based Linux System Monitor</h1>
     <p>A next-generation system telemetry agent, Web dashboard, and MCP server.</p>
     <img src="https://img.shields.io/github/last-commit/klpod221/rtop?style=for-the-badge&color=74c7ec&labelColor=111827" alt="Last Commit">
     <img src="https://img.shields.io/github/stars/klpod221/rtop?style=for-the-badge&color=facc15&labelColor=111827" alt="GitHub Stars">
