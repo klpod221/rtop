@@ -1,0 +1,31 @@
+[package]
+name        = "rtop-cli"
+version.workspace = true
+edition.workspace = true
+description = "Linux system monitor — CLI binary"
+
+# The binary name IS the brand name and is the only place to change it.
+[[bin]]
+name = "rtop"
+path = "src/main.rs"
+
+[dependencies]
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+anyhow             = { workspace = true }
+tokio              = { workspace = true }
+tracing            = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap               = { workspace = true }
+ratatui            = { workspace = true }
+crossterm          = { workspace = true }
+libc               = { workspace = true }
+app-config         = { workspace = true }
+app-collector      = { workspace = true }
+app-agent          = { workspace = true }
+app-server         = { workspace = true }
+app-mcp            = { workspace = true }
+
+[features]
+default = ["nvidia"]
+nvidia  = ["app-collector/nvidia"]

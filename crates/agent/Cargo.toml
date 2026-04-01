@@ -1,0 +1,21 @@
+[package]
+name        = "rtop-agent"
+version.workspace = true
+edition.workspace = true
+description = "Telemetry daemon agent"
+
+[dependencies]
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+anyhow         = { workspace = true }
+thiserror      = { workspace = true }
+tokio          = { workspace = true }
+tracing        = { workspace = true }
+reqwest        = { workspace = true }
+hostname       = { workspace = true }
+app-config     = { workspace = true }
+app-collector  = { workspace = true }
+
+[features]
+default = ["nvidia"]
+nvidia  = ["app-collector/nvidia"]

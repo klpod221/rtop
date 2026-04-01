@@ -1,0 +1,17 @@
+[package]
+name        = "rtop-mcp"
+version.workspace = true
+edition.workspace = true
+description = "MCP (Model Context Protocol) JSON-RPC 2.0 server"
+
+[dependencies]
+serde          = { workspace = true }
+serde_json     = { workspace = true }
+anyhow         = { workspace = true }
+tracing        = { workspace = true }
+app-collector  = { workspace = true }
+app-config     = { workspace = true }
+
+[features]
+default = ["nvidia"]
+nvidia  = ["app-collector/nvidia"]

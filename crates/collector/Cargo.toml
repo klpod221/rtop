@@ -1,0 +1,22 @@
+[package]
+name        = "rtop-collector"
+version.workspace = true
+edition.workspace = true
+description = "Linux system metrics collectors"
+
+[dependencies]
+serde         = { workspace = true }
+serde_json    = { workspace = true }
+anyhow        = { workspace = true }
+thiserror     = { workspace = true }
+libc          = { workspace = true }
+glob          = { workspace = true }
+chrono        = { workspace = true }
+app-config    = { workspace = true }
+
+# NVIDIA GPU — optional (runtime dynamic load, no static link required)
+nvml-wrapper = { version = "0.10", optional = true }
+
+[features]
+default = ["nvidia"]
+nvidia  = ["dep:nvml-wrapper"]

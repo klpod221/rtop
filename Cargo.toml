@@ -1,0 +1,63 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cli",
+    "crates/collector",
+    "crates/config",
+    "crates/agent",
+    "crates/server",
+    "crates/mcp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+# Core
+serde         = { version = "1",    features = ["derive"] }
+serde_json    = "1"
+anyhow        = "1"
+thiserror     = "2"
+
+# Async
+tokio         = { version = "1", features = ["full"] }
+
+# Logging
+tracing               = "0.1"
+tracing-subscriber    = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# HTTP / WS
+axum              = { version = "0.8", features = ["ws"] }
+tower-http        = { version = "0.6", features = ["fs", "cors"] }
+tokio-tungstenite = "0.26"
+
+# HTTP client (agent sender)
+reqwest = { version = "0.12", features = ["json", "gzip", "native-tls"] }
+
+# Embed assets
+rust-embed = { version = "8", features = ["interpolate-folder-path"] }
+
+# TUI
+ratatui   = "0.29"
+crossterm = "0.28"
+
+# System / Linux
+libc = "0.2"
+glob = "0.3"
+
+# Misc
+chrono       = { version = "0.4", features = ["serde"] }
+futures-util = "0.3"
+hostname     = "0.4"
+
+# Internal workspace crates (prefix-free — rename-proof)
+# The alias `app-*` lets callers use a stable dep name regardless of the package name inside.
+app-config    = { path = "crates/config",    package = "rtop-config"    }
+app-collector = { path = "crates/collector", package = "rtop-collector" }
+app-agent     = { path = "crates/agent",     package = "rtop-agent"     }
+app-server    = { path = "crates/server",    package = "rtop-server"    }
+app-mcp       = { path = "crates/mcp",       package = "rtop-mcp"       }
