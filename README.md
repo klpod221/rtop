@@ -23,6 +23,8 @@
 - [📝 Description](#-description)
 - [🚀 Table Of Content](#-table-of-content)
 - [📸 Screenshots](#-screenshots)
+  - [Web Dashboard UI](#web-dashboard-ui)
+  - [CLI Dashboard UI (In Progress)](#cli-dashboard-ui-in-progress)
 - [✨ Features](#-features)
   - [💻 Comprehensive Data Collection](#-comprehensive-data-collection)
   - [🌐 Modern Web Interface](#-modern-web-interface)
@@ -49,7 +51,10 @@
 
 ## 📸 Screenshots
 
+### Web Dashboard UI
 ![Web Dashboard](screenshots/WebDashboard.png)
+
+### CLI Dashboard UI (In Progress)
 ![CLI Dashboard - In Progress](screenshots/CLIDashboard.png)
 
 ## ✨ Features
