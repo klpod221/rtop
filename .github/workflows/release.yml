@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+      - "v[0-9]+.[0-9]+.[0-9]+*"
 
 jobs:
   build:
@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Build Web UI
         run: |
@@ -62,16 +62,16 @@ jobs:
         run: |
           BIN_NAME="rtop"
           BIN_PATH="target/${{ matrix.target }}/release/${BIN_NAME}"
-          
+
           CLEAN_TARGET="${{ matrix.target }}"
           CLEAN_TARGET="${CLEAN_TARGET/unknown-linux-/}"
           VERSION="${{ github.ref_name }}"
-          
+
           ARCHIVE_NAME="rtop-${VERSION}-${CLEAN_TARGET}.tar.gz"
-          
+
           # Only archive the binary
           tar -czf "$ARCHIVE_NAME" -C "target/${{ matrix.target }}/release" "$BIN_NAME"
-          
+
           echo "archive=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
           echo "clean_target=$CLEAN_TARGET" >> $GITHUB_OUTPUT
         shell: bash

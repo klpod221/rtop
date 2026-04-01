@@ -28,6 +28,8 @@
   - [🌐 Modern Web Interface](#-modern-web-interface)
   - [🤖 LLM \& Automation Ready](#-llm--automation-ready)
 - [⚙️ Installation Guide](#️-installation-guide)
+- [💻 Command Line Usage](#-command-line-usage)
+  - [Examples](#examples)
 - [🚀 Development](#-development)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
@@ -83,6 +85,53 @@ sudo ./install.sh
 ```
 
 *(This will compile release artifacts, move the binary to `/usr/local/bin/`, and set the necessary capabilities/SUID for advanced telemetry extraction).*
+
+## 💻 Command Line Usage
+
+**rtop** comes with a rich set of subcommands to interact with the system monitor in various modes:
+
+```bash
+Usage: rtop [OPTIONS] [COMMAND]
+
+Commands:
+  get      Collect and print system metrics (JSON or flat)
+  agent    Run the telemetry agent daemon
+  service  Install / uninstall / manage the systemd service
+  web      Start the embedded Web UI server
+  mcp      Start the MCP JSON-RPC 2.0 server (stdio)
+  tui      Interactive terminal UI (btop-style)
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+      --config <CONFIG>  Path to config.json (default: ~/.config/rtop/config.json)
+  -h, --help             Print help
+  -V, --version          Print version
+```
+
+### Examples
+
+- **Start the Web UI Dashboard**
+  ```bash
+  rtop web
+  ```
+  *(Then open `http://127.0.0.1:8080` in your browser - You can change the port in `config.json`)*
+
+- **Open the Terminal UI (TUI)**
+  ```bash
+  rtop tui
+  ```
+  
+
+- **Run as an MCP Server (for AI Context)**
+  ```bash
+  rtop mcp
+  ```
+
+- **Manage the Background Service**
+  ```bash
+  sudo rtop service install
+  sudo rtop service start
+  ```
 
 ## 🚀 Development
 
