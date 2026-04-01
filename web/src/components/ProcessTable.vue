@@ -5,7 +5,7 @@
       <div class="flex items-center gap-2 mb-3">
         <Cpu class="w-4 h-4 text-indigo-500" />
         <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Processes</h3>
-        <span class="ml-auto text-xs text-gray-400">{{ filteredProcesses.length }} shown</span>
+        <span class="ml-auto text-xs text-gray-400">{{ processes.length }} shown</span>
       </div>
 
       <!-- Search & Filter bar -->
@@ -14,7 +14,7 @@
         <div class="relative flex-1">
           <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
           <input
-            v-model="searchQuery"
+            v-model="store.processFilter.search"
             type="text"
             placeholder="Search name, cmdline..."
             class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/60
@@ -25,7 +25,7 @@
 
         <!-- User filter -->
         <select
-          v-model="userFilter"
+          v-model="store.processFilter.user"
           class="px-2 py-1.5 text-xs rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/60
                  text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition"
         >
@@ -68,11 +68,11 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-800/50 bg-white/20 dark:bg-transparent">
-          <tr v-for="proc in filteredProcesses" :key="proc.pid"
+          <tr v-for="proc in processes" :key="proc.pid"
               class="hover:bg-white/60 dark:hover:bg-gray-800/40 transition-colors duration-150">
             <td class="px-4 py-2.5 font-mono text-xs text-gray-400 dark:text-gray-500">{{ proc.pid }}</td>
             <td class="px-4 py-2.5 font-medium text-gray-800 dark:text-gray-200 truncate max-w-[200px]" :title="proc.cmdline">
-              <span v-html="highlight(proc.name, searchQuery)"></span>
+              <span v-html="highlight(proc.name, store.processFilter.search)"></span>
             </td>
             <td class="px-4 py-2.5 text-right">
               <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold"
@@ -87,9 +87,9 @@
             <td class="px-4 py-2.5 text-right font-medium text-xs">{{ formatBytes(proc.mem_rss_bytes) }}</td>
             <td class="px-4 py-2.5 text-right text-xs opacity-70">{{ proc.user }}</td>
           </tr>
-          <tr v-if="filteredProcesses.length === 0">
+          <tr v-if="processes.length === 0">
             <td colspan="5" class="px-6 py-12 text-center text-gray-500 text-sm">
-              {{ processes && processes.length > 0 ? 'No processes match your filter.' : 'Waiting for process data...' }}
+              {{ processes && processes.length === 0 && (store.processFilter.search || store.processFilter.user) ? 'No processes match your filter.' : 'Waiting for process data...' }}
             </td>
           </tr>
         </tbody>
@@ -99,67 +99,39 @@
 </template>
 
 <script setup>
-import { ref, computed, h } from 'vue'
+import { computed, h, watch } from 'vue'
 import { Search, Cpu, ChevronUp, ChevronDown } from 'lucide-vue-next'
 import { formatBytes } from '../utils/format.js'
+import { useMetricsStore } from '../store.js'
 
 const props = defineProps({
-  processes: { type: Array, default: () => [] }
+  processes: { type: Array, default: () => [] },
+  users: { type: Array, default: () => [] }
 })
 
-const searchQuery = ref('')
-const userFilter = ref('')
-const sortField = ref('cpu')
-const sortDir = ref('desc') // 'asc' | 'desc'
+const store = useMetricsStore()
+
+watch(() => store.processFilter, () => {
+  store.sendProcessFilter()
+}, { deep: true })
 
 const uniqueUsers = computed(() => {
-  const users = new Set(props.processes.map(p => p.user).filter(Boolean))
+  const users = new Set(props.users || [])
+  // Always include the currently selected user so it doesn't disappear from the dropdown
+  if (store.processFilter.user) {
+    users.add(store.processFilter.user)
+  }
   return [...users].sort()
 })
 
 function setSort(field) {
-  if (sortField.value === field) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  if (store.processFilter.sort_by === field) {
+    store.processFilter.sort_desc = !store.processFilter.sort_desc
   } else {
-    sortField.value = field
-    sortDir.value = field === 'name' || field === 'pid' ? 'asc' : 'desc'
+    store.processFilter.sort_by = field
+    store.processFilter.sort_desc = field !== 'name' && field !== 'pid'
   }
 }
-
-const filteredProcesses = computed(() => {
-  let list = props.processes || []
-
-  // Search filter
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.toLowerCase()
-    list = list.filter(p =>
-      p.name?.toLowerCase().includes(q) ||
-      p.cmdline?.toLowerCase().includes(q)
-    )
-  }
-
-  // User filter
-  if (userFilter.value) {
-    list = list.filter(p => p.user === userFilter.value)
-  }
-
-  // Sort
-  list = [...list].sort((a, b) => {
-    let va, vb
-    switch (sortField.value) {
-      case 'pid': va = a.pid; vb = b.pid; break
-      case 'name': va = a.name?.toLowerCase(); vb = b.name?.toLowerCase(); break
-      case 'mem': va = a.mem_rss_bytes; vb = b.mem_rss_bytes; break
-      case 'cpu':
-      default: va = a.cpu_percent; vb = b.cpu_percent; break
-    }
-    if (va < vb) return sortDir.value === 'asc' ? -1 : 1
-    if (va > vb) return sortDir.value === 'asc' ? 1 : -1
-    return 0
-  })
-
-  return list
-})
 
 function highlight(text, query) {
   if (!query.trim()) return text || ''
@@ -173,8 +145,8 @@ const SortIcon = {
   props: ['field'],
   setup(p) {
     return () => {
-      if (sortField.value !== p.field) return null
-      return sortDir.value === 'asc'
+      if (store.processFilter.sort_by !== p.field) return null
+      return !store.processFilter.sort_desc
         ? h(ChevronUp, { class: 'w-3 h-3 text-indigo-500' })
         : h(ChevronDown, { class: 'w-3 h-3 text-indigo-500' })
     }

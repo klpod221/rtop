@@ -79,6 +79,11 @@ pub fn collect_all(
             procs = proc::filter_by_name(&procs, &m.processes.name_filter);
         }
         proc::sort(&mut procs, &m.processes.sort_by);
+        let active_users: std::collections::HashSet<String> = procs.iter().map(|p| p.user.clone()).collect();
+        let mut active_users_vec: Vec<String> = active_users.into_iter().collect();
+        active_users_vec.sort();
+        payload.active_users = active_users_vec;
+
         if m.processes.top_n > 0 {
             procs.truncate(m.processes.top_n);
         }

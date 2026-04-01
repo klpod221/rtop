@@ -51,6 +51,21 @@
           <!-- Network topbar badge -->
           <NetworkBadge v-if="payload?.network" />
 
+          <!-- Update Interval -->
+          <div class="hidden sm:flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300 bg-white/50 dark:bg-black/20 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-white/10">
+            <Clock class="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+            <input 
+              type="number" 
+              v-model.number="intervalInput" 
+              @change="updateInterval" 
+              min="100" 
+              step="100" 
+              class="w-14 bg-transparent border-none p-0 focus:ring-0 text-center text-xs font-medium text-gray-800 dark:text-gray-200"
+              title="Update interval (ms)"
+            />
+            <span class="text-xs font-semibold text-gray-500 dark:text-gray-400">ms</span>
+          </div>
+
           <!-- Divider -->
           <div
             class="w-px h-6 bg-gray-200 dark:bg-white/10 hidden md:block"
@@ -148,7 +163,7 @@
           </div>
 
           <div class="xl:col-span-2">
-            <ProcessTable :processes="payload.processes" />
+            <ProcessTable :processes="payload.processes" :users="payload.active_users" />
           </div>
         </div>
       </template>
@@ -172,7 +187,7 @@
 
 <script setup>
 import { computed, watch, ref, onMounted } from "vue";
-import { Zap } from "lucide-vue-next";
+import { Zap, Clock } from "lucide-vue-next";
 import { useMetricsStore } from "./store.js";
 import CpuCard from "./components/CpuCard.vue";
 import MemCard from "./components/MemCard.vue";
@@ -194,6 +209,17 @@ const memPercent = computed(() => {
   if (!payload.value?.memory) return 0;
   return (payload.value.memory.used / payload.value.memory.total) * 100;
 });
+
+const intervalInput = ref(1000);
+
+watch(() => store.webConfig.update_interval_ms, (val) => {
+  if (val) intervalInput.value = val;
+}, { immediate: true });
+
+function updateInterval() {
+  if (intervalInput.value < 100) intervalInput.value = 100;
+  store.saveConfig({ update_interval_ms: intervalInput.value });
+}
 
 watch(
   () => store.payload,

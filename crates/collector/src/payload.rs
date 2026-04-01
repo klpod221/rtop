@@ -44,4 +44,6 @@ pub struct AgentPayload {
     pub nvidia_gpus: Vec<NvidiaGpuStats>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub amd_gpus: Vec<AmdGpuStats>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub active_users: Vec<String>,
 }

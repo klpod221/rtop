@@ -7,9 +7,17 @@ export const useMetricsStore = defineStore('metrics', () => {
   const webConfig = ref({
     port: 8080,
     network_interface: '',
-    storage_filter: []
+    storage_filter: [],
+    update_interval_ms: 1000
   })
   const selectedInterface = ref('')
+  
+  const processFilter = ref({
+    search: '',
+    sort_by: 'cpu',
+    sort_desc: true,
+    user: ''
+  })
 
   let ws = null
 
@@ -62,6 +70,7 @@ export const useMetricsStore = defineStore('metrics', () => {
 
     ws.onopen = () => {
       isConnected.value = true
+      sendProcessFilter()
     }
 
     ws.onmessage = (event) => {
@@ -81,6 +90,12 @@ export const useMetricsStore = defineStore('metrics', () => {
     ws.onclose = () => {
       isConnected.value = false
       setTimeout(connect, 3000)
+    }
+  }
+
+  function sendProcessFilter() {
+    if (ws && isConnected.value) {
+      ws.send(JSON.stringify(processFilter.value))
     }
   }
 
@@ -104,8 +119,10 @@ export const useMetricsStore = defineStore('metrics', () => {
     webConfig,
     selectedInterface,
     connect,
+    processFilter,
     loadConfig,
     saveConfig,
-    pickBestInterface
+    pickBestInterface,
+    sendProcessFilter
   }
 })

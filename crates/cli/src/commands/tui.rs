@@ -38,9 +38,6 @@ use app_collector::{
     proc::{self, ProcessInfo},
 };
 
-// ─── Refresh rate ─────────────────────────────────────────────────────────────
-
-const REFRESH_MS: u64 = 1000;
 const SPARKLINE_LEN: usize = 60;
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
@@ -274,7 +271,8 @@ impl AppState {
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 pub async fn run(cfg_path: &Path) -> Result<()> {
-    let _cfg = app_config::load(cfg_path).unwrap_or_default();
+    let cfg = app_config::load(cfg_path).unwrap_or_default();
+    let refresh_ms = cfg.update_interval_ms.max(100);
 
     // Warm-up GPU + CPU
     let mut intel_col: Option<gpu::intel::IntelGpuCollector> =
@@ -293,7 +291,7 @@ pub async fn run(cfg_path: &Path) -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let result = event_loop(&mut terminal, &mut intel_col).await;
+    let result = event_loop(&mut terminal, &mut intel_col, refresh_ms).await;
 
     // Restore terminal
     disable_raw_mode()?;
@@ -310,6 +308,7 @@ pub async fn run(cfg_path: &Path) -> Result<()> {
 async fn event_loop(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     intel_col: &mut Option<gpu::intel::IntelGpuCollector>,
+    refresh_ms: u64,
 ) -> Result<()> {
     let mut state = AppState::new();
     state.update_metrics(intel_col);
@@ -318,7 +317,7 @@ async fn event_loop(
     loop {
         terminal.draw(|f| draw(f, &mut state))?;
 
-        let timeout = Duration::from_millis(REFRESH_MS)
+    let timeout = Duration::from_millis(refresh_ms)
             .checked_sub(last_tick.elapsed())
             .unwrap_or_default();
 
@@ -375,7 +374,7 @@ async fn event_loop(
             }
         }
 
-        if last_tick.elapsed() >= Duration::from_millis(REFRESH_MS) {
+        if last_tick.elapsed() >= Duration::from_millis(refresh_ms) {
             state.update_metrics(intel_col);
             last_tick = Instant::now();
         }

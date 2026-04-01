@@ -170,6 +170,9 @@ pub struct Config {
     pub enabled_agent: bool,
     /// Enable the embedded Web UI server.
     pub enabled_web: bool,
+    /// Data refresh interval in milliseconds (min 100). Shared by Web, TUI, and Agent.
+    #[serde(default = "Config::default_interval_ms")]
+    pub update_interval_ms: u64,
     pub web: WebConfig,
     pub server: ServerConfig,
     pub agent: AgentBehaviorConfig,
@@ -260,11 +263,16 @@ impl Default for ModulesConfig {
     }
 }
 
+impl Config {
+    pub const fn default_interval_ms() -> u64 { 1000 }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             enabled_agent: false,
             enabled_web: false,
+            update_interval_ms: 1000,
             web: WebConfig::default(),
             server: ServerConfig::default(),
             agent: AgentBehaviorConfig::default(),
@@ -295,15 +303,10 @@ pub fn default_config_path() -> Result<PathBuf, ConfigError> {
     Ok(PathBuf::from(home).join(".config/rtop/config.json"))
 }
 
-/// Loads config from `path`. Writes the default config if the file doesn't exist yet.
+/// Loads config from `path`. Returns default config if the file doesn't exist.
 pub fn load(path: &Path) -> Result<Config, ConfigError> {
     if !path.exists() {
-        let cfg = Config::default();
-        write(path, &cfg).map_err(|e| ConfigError::Write {
-            path: path.to_path_buf(),
-            source: e,
-        })?;
-        return Ok(cfg);
+        return Ok(Config::default());
     }
 
     let data = std::fs::read(path).map_err(|e| ConfigError::Read {
@@ -365,6 +368,9 @@ pub fn validate(cfg: &Config) -> Result<(), ConfigError> {
     if cfg.web.port == 0 {
         return Err(ConfigError::Validation("web.port must be > 0".into()));
     }
+    if cfg.update_interval_ms < 100 {
+        return Err(ConfigError::Validation("update_interval_ms must be >= 100".into()));
+    }
     Ok(())
 }
 
@@ -424,11 +430,11 @@ mod tests {
     }
 
     #[test]
-    fn load_missing_file_creates_default() {
+    fn load_missing_file_returns_default() {
         let tmp = std::env::temp_dir().join(format!("app_config_test_{}.json", std::process::id()));
         let cfg = load(&tmp).unwrap();
-        assert!(tmp.exists());
-        std::fs::remove_file(&tmp).ok();
+        // File must NOT be created — only return defaults in memory
+        assert!(!tmp.exists());
         assert_eq!(cfg.agent.interval_seconds, 5);
     }
 }

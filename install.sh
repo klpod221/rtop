@@ -19,5 +19,5 @@ sudo chmod u+s /usr/local/bin/rtop
 
 echo "==> Installation complete!"
 echo ""
-echo "You can now run 'rtop web' from anywhere to start the telemetry web dashboard."
+echo "You can now run 'rtop help' from anywhere to see available commands."
 echo ""

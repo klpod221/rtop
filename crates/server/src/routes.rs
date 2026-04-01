@@ -9,6 +9,8 @@ use axum::{
     routing::get,
     Json, Router,
 };
+use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 use tower_http::cors::CorsLayer;
 
 use app_collector::{collect_all, gpu::intel::IntelGpuCollector};
@@ -22,7 +24,31 @@ use super::ws::{spawn_broadcast_loop, ws_handler, MetricsBroadcast};
 #[derive(Clone)]
 struct AppState {
     broadcast: MetricsBroadcast,
-    cfg: Arc<Config>,
+    cfg: Arc<RwLock<Config>>,
+}
+
+// ─── Config API DTO ────────────────────────────────────────────────────────────
+
+/// Flattened view of settings exposed over the API.
+/// Combines `WebConfig` fields with top-level `update_interval_ms`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ConfigDto {
+    pub port: u16,
+    pub network_interface: String,
+    pub storage_filter: Vec<String>,
+    /// Shared refresh interval (ms, min 100).
+    pub update_interval_ms: u64,
+}
+
+impl From<&Config> for ConfigDto {
+    fn from(c: &Config) -> Self {
+        Self {
+            port: c.web.port,
+            network_interface: c.web.network_interface.clone(),
+            storage_filter: c.web.storage_filter.clone(),
+            update_interval_ms: c.update_interval_ms,
+        }
+    }
 }
 
 // ─── Router builder ────────────────────────────────────────────────────────────
@@ -31,14 +57,12 @@ pub async fn build_router(
     cfg: Config,
     intel_col: Option<IntelGpuCollector>,
 ) -> Router {
-    let cfg = Arc::new(cfg);
-    let cfg_for_collect = cfg.clone();
+    let cfg = Arc::new(RwLock::new(cfg));
     let intel_col = Arc::new(Mutex::new(intel_col));
 
-    // Spawn the 1-second broadcast loop
-    let broadcast = spawn_broadcast_loop(move || {
+    let broadcast = spawn_broadcast_loop(cfg.clone(), move |c| {
         let mut guard = intel_col.lock().unwrap();
-        collect_all(&cfg_for_collect, guard.as_mut(), None, None)
+        collect_all(c, guard.as_mut(), None, None)
     });
 
     let state = AppState { broadcast, cfg };
@@ -46,7 +70,7 @@ pub async fn build_router(
     Router::new()
         .route("/ws",         get(ws_route))
         .route("/api/config", get(get_config).post(post_config))
-        .fallback(static_handler)          // SPA fallback
+        .fallback(static_handler)
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
@@ -60,13 +84,23 @@ async fn ws_route(ws: WebSocketUpgrade, State(state): State<AppState>) -> Respon
 // ─── Config API ───────────────────────────────────────────────────────────────
 
 async fn get_config(State(state): State<AppState>) -> impl IntoResponse {
-    Json(state.cfg.web.clone())
+    let cfg = state.cfg.read().await;
+    Json(ConfigDto::from(&*cfg))
 }
 
 async fn post_config(
-    State(_state): State<AppState>,
-    Json(web_patch): Json<app_config::WebConfig>,
+    State(state): State<AppState>,
+    Json(dto): Json<ConfigDto>,
 ) -> impl IntoResponse {
+    if dto.update_interval_ms < 100 {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "update_interval_ms must be >= 100",
+        )
+            .into_response();
+    }
+
+    // Persist to disk
     let path = match cfg_lib::default_config_path() {
         Ok(p) => p,
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
@@ -75,16 +109,26 @@ async fn post_config(
         Ok(c) => c,
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     };
-    if web_patch.port != 0 {
-        full.web = web_patch;
-    } else {
-        let preserved_port = full.web.port;
-        full.web = web_patch;
-        full.web.port = preserved_port;
-    }
+
+    let preserved_port = if dto.port == 0 { full.web.port } else { dto.port };
+    full.web.port = preserved_port;
+    full.web.network_interface = dto.network_interface.clone();
+    full.web.storage_filter = dto.storage_filter.clone();
+    full.update_interval_ms = dto.update_interval_ms;
+
     if let Err(e) = cfg_lib::write(&path, &full) {
         return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
     }
+
+    // Update in-memory immediately so GET reflects the change right away
+    {
+        let mut cfg = state.cfg.write().await;
+        cfg.web.port = full.web.port;
+        cfg.web.network_interface = full.web.network_interface;
+        cfg.web.storage_filter = full.web.storage_filter;
+        cfg.update_interval_ms = full.update_interval_ms;
+    }
+
     Json(serde_json::json!({"status": "ok"})).into_response()
 }
 
@@ -100,17 +144,16 @@ async fn static_handler(uri: axum::http::Uri) -> impl IntoResponse {
             (
                 [(axum::http::header::CONTENT_TYPE, mime.as_ref())],
                 content.data,
-            ).into_response()
+            )
+                .into_response()
         }
-        None => {
-            // SPA fallback — serve index.html for any unknown route
-            match WebAssets::get("index.html") {
-                Some(index) => (
-                    [(axum::http::header::CONTENT_TYPE, "text/html")],
-                    index.data,
-                ).into_response(),
-                None => StatusCode::NOT_FOUND.into_response(),
-            }
-        }
+        None => match WebAssets::get("index.html") {
+            Some(index) => (
+                [(axum::http::header::CONTENT_TYPE, "text/html")],
+                index.data,
+            )
+                .into_response(),
+            None => StatusCode::NOT_FOUND.into_response(),
+        },
     }
 }

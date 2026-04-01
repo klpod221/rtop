@@ -17,9 +17,8 @@
       <div
         class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4 truncate text-wrap"
         :title="ramInfo"
-      >
-        {{ ramInfo || "Unknown RAM" }}
-      </div>
+        v-html="ramInfo || 'Unknown RAM'"
+      ></div>
     </div>
 
     <!-- Usage Bar -->
@@ -55,7 +54,7 @@
           class="w-full bg-gray-100 dark:bg-gray-800/80 rounded-full h-1.5 overflow-hidden shadow-inner"
         >
           <div
-            class="h-1.5 rounded-full bg-gradient-to-r from-gray-400 to-gray-500"
+            class="h-1.5 rounded-full bg-linear-to-r from-gray-400 to-gray-500"
             :style="{ width: swapPercent + '%' }"
           ></div>
         </div>
@@ -82,7 +81,7 @@ const props = defineProps({
 
 const ramInfo = computed(() => {
   if (props.host?.physical_ram?.length > 0) {
-    return props.host.physical_ram.join(" • ");
+    return props.host.physical_ram.join(" <br /> ");
   }
   return formatBytes(props.data.total);
 });
