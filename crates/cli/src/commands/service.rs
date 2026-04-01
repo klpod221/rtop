@@ -32,35 +32,38 @@ enum ServiceAction {
     Restart,
 }
 
-const UNIT_NAME: &str = "rtop-agent.service";
-const UNIT_PATH: &str = "/etc/systemd/system/rtop-agent.service";
+const UNIT_NAME: &str = "rtop.service";
+const UNIT_PATH: &str = "/etc/systemd/system/rtop.service";
 
 pub fn run(args: ServiceArgs) -> Result<()> {
     match args.action {
         ServiceAction::Install { bin, config } => install(bin, config),
-        ServiceAction::Uninstall              => uninstall(),
-        ServiceAction::Status                 => systemctl("status"),
-        ServiceAction::Start                  => systemctl("start"),
-        ServiceAction::Stop                   => systemctl("stop"),
-        ServiceAction::Restart                => systemctl("restart"),
+        ServiceAction::Uninstall => uninstall(),
+        ServiceAction::Status => systemctl("status"),
+        ServiceAction::Start => systemctl("start"),
+        ServiceAction::Stop => systemctl("stop"),
+        ServiceAction::Restart => systemctl("restart"),
     }
 }
 
-fn install(
-    bin: Option<std::path::PathBuf>,
-    config: Option<std::path::PathBuf>,
-) -> Result<()> {
+fn install(bin: Option<std::path::PathBuf>, config: Option<std::path::PathBuf>) -> Result<()> {
     let bin_path = bin.unwrap_or_else(|| {
         std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("/usr/local/bin/rtop"))
     });
-    let cfg_arg = config.map(|p| format!(" --config {}", p.display())).unwrap_or_default();
+
+    // Resolve the config to explicitly pass it, avoiding "HOME not set" in systemd
+    let resolved_config = config.unwrap_or_else(|| {
+        app_config::default_config_path()
+            .unwrap_or_else(|_| std::path::PathBuf::from("/etc/rtop/config.json"))
+    });
+    let cfg_arg = format!(" --config {}", resolved_config.display());
 
     let unit = format!(
         "[Unit]\n\
-         Description=rtop telemetry agent\n\
+         Description=rtop telemetry agent and web server\n\
          After=network.target\n\n\
          [Service]\n\
-         ExecStart={bin}{cfg}\n\
+         ExecStart={bin} run{cfg}\n\
          Restart=on-failure\n\
          RestartSec=5\n\n\
          [Install]\n\
@@ -69,23 +72,29 @@ fn install(
         cfg = cfg_arg,
     );
 
-    std::fs::write(UNIT_PATH, unit)
-        .with_context(|| format!("writing unit file to {UNIT_PATH}"))?;
+    std::fs::write(UNIT_PATH, unit).with_context(|| format!("writing unit file to {UNIT_PATH}"))?;
 
     systemctl_raw(&["daemon-reload"])?;
     systemctl_raw(&["enable", "--now", UNIT_NAME])?;
-    println!("rtop-agent service installed and started.");
+    println!("rtop service installed and started.");
     Ok(())
 }
 
 fn uninstall() -> Result<()> {
     systemctl_raw(&["disable", "--now", UNIT_NAME]).ok();
     if std::path::Path::new(UNIT_PATH).exists() {
-        std::fs::remove_file(UNIT_PATH)
-            .with_context(|| format!("removing {UNIT_PATH}"))?;
+        std::fs::remove_file(UNIT_PATH).with_context(|| format!("removing {UNIT_PATH}"))?;
     }
+
+    // Also attempt to remove the legacy rtop.service for clean upgrades
+    systemctl_raw(&["disable", "--now", "rtop.service"]).ok();
+    let old_unit_path = "/etc/systemd/system/rtop.service";
+    if std::path::Path::new(old_unit_path).exists() {
+        std::fs::remove_file(old_unit_path).ok();
+    }
+
     systemctl_raw(&["daemon-reload"])?;
-    println!("rtop-agent service removed.");
+    println!("rtop service removed.");
     Ok(())
 }
 

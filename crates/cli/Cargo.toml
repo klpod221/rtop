@@ -25,6 +25,7 @@ app-collector      = { workspace = true }
 app-agent          = { workspace = true }
 app-server         = { workspace = true }
 app-mcp            = { workspace = true }
+chrono             = { version = "0.4", features = ["clock"] }
 
 [features]
 default = ["nvidia"]

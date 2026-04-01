@@ -25,6 +25,9 @@ use super::ws::{spawn_broadcast_loop, ws_handler, MetricsBroadcast};
 struct AppState {
     broadcast: MetricsBroadcast,
     cfg: Arc<RwLock<Config>>,
+    /// Path to the config file on disk — saved at startup to avoid calling
+    /// `default_config_path()` at request time (which needs $HOME).
+    cfg_path: std::path::PathBuf,
 }
 
 // ─── Config API DTO ────────────────────────────────────────────────────────────
@@ -55,6 +58,7 @@ impl From<&Config> for ConfigDto {
 
 pub async fn build_router(
     cfg: Config,
+    cfg_path: std::path::PathBuf,
     intel_col: Option<IntelGpuCollector>,
 ) -> Router {
     let cfg = Arc::new(RwLock::new(cfg));
@@ -65,7 +69,7 @@ pub async fn build_router(
         collect_all(c, guard.as_mut(), None, None)
     });
 
-    let state = AppState { broadcast, cfg };
+    let state = AppState { broadcast, cfg, cfg_path };
 
     Router::new()
         .route("/ws",         get(ws_route))
@@ -100,11 +104,8 @@ async fn post_config(
             .into_response();
     }
 
-    // Persist to disk
-    let path = match cfg_lib::default_config_path() {
-        Ok(p) => p,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-    };
+    // Persist to disk using the path resolved at startup (avoids $HOME lookup at request time)
+    let path = state.cfg_path.clone();
     let mut full = match cfg_lib::load(&path) {
         Ok(c) => c,
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),

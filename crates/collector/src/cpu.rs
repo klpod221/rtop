@@ -201,14 +201,21 @@ fn collect_temperatures(stats: &mut CpuStats) {
 
 fn try_hwmon_temps(stats: &mut CpuStats) -> bool {
     let Ok(paths) = glob::glob("/sys/class/hwmon/hwmon*") else { return false };
+    let mut found_package = false;
+
     for path in paths.flatten() {
         let name_path = path.join("name");
         let Ok(name) = std::fs::read_to_string(&name_path) else { continue };
         let name = name.trim();
         if !matches!(name, "coretemp" | "k10temp" | "zenpower") { continue; }
 
+        // Collect all sensor paths first, then sort numerically so we read
+        // them in a stable order (temp1, temp2, … temp16, etc.)
         let Ok(temp_inputs) = glob::glob(&format!("{}/temp*_input", path.display())) else { continue };
-        for tp in temp_inputs.flatten() {
+        let mut sensor_paths: Vec<std::path::PathBuf> = temp_inputs.flatten().collect();
+        sensor_paths.sort();
+
+        for tp in sensor_paths {
             let label_path = tp.with_extension("").with_file_name(
                 tp.file_name()
                     .unwrap_or_default()
@@ -224,14 +231,16 @@ fn try_hwmon_temps(stats: &mut CpuStats) -> bool {
             let val: i64 = raw.trim().parse().unwrap_or(0) / 1000;
 
             if label.contains("package") || label.contains("tdie") || label.contains("tctl") {
+                // Record the package/die temp but keep scanning for core temps
                 stats.package_temp_c = val;
-                return true; // found definitive package temp
+                found_package = true;
             } else if label.contains("core") || label.contains("tccd") {
                 stats.core_temps_c.push(val);
             }
         }
     }
-    !stats.core_temps_c.is_empty()
+
+    found_package || !stats.core_temps_c.is_empty()
 }
 
 fn try_platform_coretemp(stats: &mut CpuStats) -> bool {

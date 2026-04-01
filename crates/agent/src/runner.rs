@@ -74,7 +74,7 @@ pub async fn run(opts: RunOptions) -> Result<()> {
     let mut sigint = signal(SignalKind::interrupt())?;
 
     info!(
-        "rtop-agent started (interval={}s, dry_run={})",
+        "rtop telemetry started (interval={}s, dry_run={})",
         cfg.agent.interval_seconds, opts.dry_run
     );
 

@@ -184,7 +184,7 @@ pub struct Config {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            endpoint: "http://your-server:8080/api/telemetry".into(),
+            endpoint: "http://127.0.0.1:8080/api/telemetry".into(),
             auth_token: String::new(),
             auth_header: "Authorization".into(),
             timeout_seconds: 10,
@@ -206,7 +206,7 @@ impl Default for AgentBehaviorConfig {
             tags: HashMap::new(),
             log_level: "info".into(),
             log_file: String::new(),
-            pid_file: "/tmp/rtop-agent.pid".into(),
+            pid_file: "/tmp/rtop.pid".into(),
         }
     }
 }

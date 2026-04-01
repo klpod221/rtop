@@ -38,6 +38,8 @@ struct Cli {
 enum Commands {
     /// Collect and print system metrics (JSON or flat)
     Get(commands::get::GetArgs),
+    /// Start services enabled in config (agent and/or web) — used by systemd
+    Run,
     /// Run the telemetry agent daemon
     Agent(commands::agent::AgentArgs),
     /// Install / uninstall / manage the systemd service
@@ -65,6 +67,7 @@ async fn main() -> Result<()> {
 
     match cli.command.unwrap_or(Commands::Tui) {
         Commands::Get(args)     => commands::get::run(args, &cfg_path).await,
+        Commands::Run           => commands::run::run(&cfg_path).await,
         Commands::Agent(args)   => commands::agent::run(args, &cfg_path).await,
         Commands::Service(args) => commands::service::run(args),
         Commands::Web(args)     => commands::web::run(args, &cfg_path).await,

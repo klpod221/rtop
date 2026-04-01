@@ -1,0 +1,9 @@
+pub mod menu_bar;
+pub mod cpu_graph;
+pub mod gpu_graph;
+pub mod cpu_detail;
+pub mod gpu_detail;
+pub mod mem;
+pub mod disk;
+pub mod net;
+pub mod proc;

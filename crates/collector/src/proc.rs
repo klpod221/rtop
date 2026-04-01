@@ -27,6 +27,8 @@ pub struct ProcessInfo {
     pub io_read_bytes: u64,
     pub io_write_bytes: u64,
     pub user: String,
+    pub threads: u32,
+    pub ppid: u32,
 }
 
 // ─── Delta state ──────────────────────────────────────────────────────────────
@@ -88,7 +90,7 @@ fn collect_one(
     state: &mut HashMap<u32, ProcSnapshot>,
 ) -> Option<ProcessInfo> {
     let stat = read_stat(pid)?;
-    let (rss, uid) = read_status(pid);
+    let (rss, uid, threads) = read_status(pid);
     let (io_r, io_w) = read_io(pid);
 
     let utime = stat.utime;
@@ -134,6 +136,8 @@ fn collect_one(
         io_read_bytes: io_r,
         io_write_bytes: io_w,
         user: resolve_uid(uid),
+        threads,
+        ppid: stat.ppid,
     })
 }
 
@@ -142,6 +146,7 @@ fn collect_one(
 struct StatFields {
     name: String,
     state: char,
+    ppid: u32,
     utime: u64,
     stime: u64,
 }
@@ -158,22 +163,25 @@ fn read_stat(pid: u32) -> Option<StatFields> {
     // Fields are 0-indexed from the post-name remainder:
     // 0=state 1=ppid 2=pgrp 3=session 4=tty 5=tpgid 6=flags
     // 7=minflt 8=cminflt 9=majflt 10=cmajflt 11=utime 12=stime
+    let ppid: u32 = rest.get(1)?.parse().ok()?;
     let utime: u64 = rest.get(11)?.parse().ok()?;
     let stime: u64 = rest.get(12)?.parse().ok()?;
     Some(StatFields {
         name,
         state,
+        ppid,
         utime,
         stime,
     })
 }
 
-fn read_status(pid: u32) -> (u64, u32) {
+fn read_status(pid: u32) -> (u64, u32, u32) {
     let Ok(content) = std::fs::read_to_string(format!("/proc/{pid}/status")) else {
-        return (0, 0);
+        return (0, 0, 1);
     };
     let mut rss = 0;
     let mut uid = 0;
+    let mut threads = 1;
     for line in content.lines() {
         if let Some(rest) = line.strip_prefix("VmRSS:") {
             rss = rest
@@ -188,9 +196,14 @@ fn read_status(pid: u32) -> (u64, u32) {
                 .next()
                 .and_then(|v| v.parse::<u32>().ok())
                 .unwrap_or(0);
+        } else if let Some(rest) = line.strip_prefix("Threads:") {
+            threads = rest
+                .trim()
+                .parse::<u32>()
+                .unwrap_or(1);
         }
     }
-    (rss, uid)
+    (rss, uid, threads)
 }
 
 fn read_io(pid: u32) -> (u64, u64) {

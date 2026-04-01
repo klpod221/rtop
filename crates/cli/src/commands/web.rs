@@ -17,5 +17,5 @@ pub async fn run(args: WebArgs, cfg_path: &Path) -> Result<()> {
     if let Some(port) = args.port {
         cfg.web.port = port;
     }
-    app_server::start(&cfg).await
+    app_server::start(&cfg, cfg_path.to_path_buf()).await
 }

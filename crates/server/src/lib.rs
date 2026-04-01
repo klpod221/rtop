@@ -16,7 +16,7 @@ use app_config::Config;
 pub use routes::build_router;
 
 /// Starts the HTTP server on the configured port. Blocks until the server stops.
-pub async fn start(cfg: &Config) -> Result<()> {
+pub async fn start(cfg: &Config, cfg_path: std::path::PathBuf) -> Result<()> {
     let port = cfg.web.port;
 
     // Warm-up GPU collectors
@@ -31,7 +31,7 @@ pub async fn start(cfg: &Config) -> Result<()> {
     app_collector::cpu::collect().ok(); // baseline tick
 
     let cfg_clone = cfg.clone();
-    let router = build_router(cfg_clone, intel_col).await;
+    let router = build_router(cfg_clone, cfg_path, intel_col).await;
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("Starting Web UI on http://localhost:{port}");
