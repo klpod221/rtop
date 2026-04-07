@@ -59,7 +59,6 @@ pub struct AppState {
     pub tree_mode: bool,
     pub per_core_mode: bool,
     pub selected_iface: usize,
-    pub show_help: bool,
     pub theme: Theme,
     pub refresh_ms: u64,
 }
@@ -96,7 +95,6 @@ impl AppState {
             tree_mode: false,
             per_core_mode: false,
             selected_iface: 0,
-            show_help: false,
             theme: Theme::default_dark(),
             refresh_ms,
         }

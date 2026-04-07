@@ -100,7 +100,8 @@ fn collect_one(
         let dt = now.duration_since(prev.when).as_secs_f64();
         let cp = if dt > 0.0 && hz > 0.0 {
             let delta_ticks = (utime + stime).saturating_sub(prev.utime + prev.stime) as f64;
-            (delta_ticks / hz / dt * 100.0).clamp(0.0, 100.0 * num_cpus())
+            let cpus = num_cpus().max(1.0);
+            ((delta_ticks / hz / dt * 100.0) / cpus).clamp(0.0, 100.0)
         } else {
             0.0
         };
